@@ -15,7 +15,7 @@ def update_version(name, rootdir):
     vfile.close()
 
     # Standardized version in form major.minor.patch-build
-    p = re.compile("v?(\d+\.\d+\.\d+(-\d+)?).*")
+    p = re.compile(r"v?(\d+\.\d+\.\d+(-\d+)?).*")
     m = p.match(full_version)
     if m is not None:
         std_version = m.group(1)
@@ -33,6 +33,8 @@ def get_lib_template(platform):
         return "lib", "lib%s.so"
 
 def build_plugin(package_name, rootdir, distdir, platform):
+    os.system("python %s build_ext --inplace --force" % os.path.join(rootdir, "setup.py"))
+
     fsldir = os.environ.get("FSLDEVDIR", os.environ.get("FSLDIR", ""))
     print("Coping Fabber libraries from %s" % fsldir)
     print("Root dir is %s" % rootdir)
@@ -66,7 +68,7 @@ elif sys.platform.startswith("darwin"):
     import create_dmg
     build_platform_package = create_dmg.create_dmg
 
-os.system("rm -rf %s/dist" % rootdir)
+shutil.rmtree("%s/dist" % rootdir, ignore_errors=True)
 v = update_version(package_name, rootdir)
 print("Version updated to %s" % v[0])
 version_str_display = version_str = v[1]
@@ -75,4 +77,4 @@ if "--snapshot" in sys.argv:
 
 print("Building plugin")
 build_plugin(package_name, rootdir, distdir, platform)
-build_platform_package(package_name, distdir, pkgdir, v[1], version_str_display)
+build_platform_package("qp-" + package_name, package_name, distdir, pkgdir, v[1], version_str_display)
