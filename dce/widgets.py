@@ -8,10 +8,8 @@ from __future__ import division, unicode_literals, absolute_import, print_functi
 
 from PySide import QtGui
 
-from quantiphyse.gui.dialogs import error_dialog
-from quantiphyse.gui.widgets import QpWidget, Citation, TitleWidget
-from quantiphyse.utils import debug, warn, get_plugins
-from quantiphyse.utils.exceptions import QpException
+from quantiphyse.gui.widgets import QpWidget, Citation, TitleWidget, RunBox
+from quantiphyse.utils import debug, warn, get_plugins, QpException
 
 from ._version import __version__
 from .process import PkModellingProcess
@@ -84,55 +82,18 @@ class DceWidget(QpWidget):
         main_vbox.addWidget(aif_choice)
 
         # Run button and progress
-        run_box = QtGui.QGroupBox()
-        run_box.setTitle('Running')
-        hbox = QtGui.QHBoxLayout()
-        but_gen = QtGui.QPushButton('Run modelling', self)
-        but_gen.clicked.connect(self.start_task)
-        hbox.addWidget(but_gen)
-        self.prog_gen = QtGui.QProgressBar(self)
-        self.prog_gen.setStatusTip('Progress of Pk modelling. Be patient. Progress is only updated in chunks')
-        hbox.addWidget(self.prog_gen)
-        run_box.setLayout(hbox)
-        main_vbox.addWidget(run_box)
+        runBox = RunBox(self.get_process, self.get_rundata, title="Run modelling", save_option=False)
+        main_vbox.addWidget(runBox)
 
         main_vbox.addStretch()
         self.setLayout(main_vbox)
 
         self.process = PkModellingProcess(self.ivm)
-        self.process.sig_finished.connect(self.finished)
-        self.process.sig_progress.connect(self.progress)
 
-    def start_task(self):
-        """
-        Start running the PK modelling on button click
-        """
-        if self.ivm.main is None:
-            error_dialog("No data loaded")
-            return
+    def get_process(self):
+        return self.process
 
-        if self.ivm.current_roi is None:
-            error_dialog("No ROI loaded - required for Pk modelling")
-            return
-
-        if "T10" not in self.ivm.data:
-            error_dialog("No T10 map loaded - required for Pk modelling")
-            return
-
-        _, options = self.batch_options()
-        self.prog_gen.setValue(0)
-        self.process.run(options)
-
-    def progress(self, progress):
-        self.prog_gen.setValue(100*progress)
-
-    def finished(self, status, output, log, exception):
-        """ GUI updates on process completion """
-        if status != self.process.SUCCEEDED:
-            QtGui.QMessageBox.warning(None, "PK error", "PK modelling failed:\n\n" + str(exception),
-                                      QtGui.QMessageBox.Close)
-
-    def batch_options(self):
+    def get_rundata(self):
         options = {}
         options["r1"] = float(self.valR1.text())
         options["r2"] = float(self.valR2.text())
@@ -144,8 +105,10 @@ class DceWidget(QpWidget):
         options["ve-thresh"] = float(self.thresh1.text())
         options["dose"] = float(self.valDose.text())
         options["model"] = self.combo.currentIndex() + 1
+        return options
 
-        return "PkModelling", options
+    def batch_options(self):
+        return "PkModelling", self.get_rundata()
 
 FAB_CITE_TITLE = "Variational Bayesian inference for a non-linear forward model"
 FAB_CITE_AUTHOR = "Chappell MA, Groves AR, Whitcher B, Woolrich MW."

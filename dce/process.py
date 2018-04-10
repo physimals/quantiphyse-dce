@@ -8,22 +8,20 @@ import sys
 import time
 import numpy as np
 
-from quantiphyse.utils import debug
-from quantiphyse.utils.exceptions import QpException
-
-from quantiphyse.analysis import Process, BackgroundProcess
+from quantiphyse.utils import debug, QpException
+from quantiphyse.processes import Process, BackgroundProcess
 
 from .pk_model import PyPk
 
-def _run_pk(worker_id, queue, img1sub, t101sub, r1, r2, delt, injt, tr1, te1, dce_flip_angle, dose, model_choice):
+def _run_pk(worker_id, queue, data, t1, r1, r2, delt, injt, tr1, te1, dce_flip_angle, dose, model_choice):
     """
     Simple function to run the c++ pk modelling code. Must be a function to work with multiprocessing
     """
     try:
         log = ""
-        t1 = np.arange(0, img1sub.shape[-1])*delt
+        times = np.arange(0, data.shape[-1])*delt
         # conversion to minutes
-        t1 = t1/60.0
+        times = times/60.0
 
         injtmins = injt/60.0
 
@@ -38,13 +36,13 @@ def _run_pk(worker_id, queue, img1sub, t101sub, r1, r2, delt, injt, tr1, te1, dc
         lb = [0, 0.05, -0.5, 0]
 
         # contiguous array
-        img1sub = np.ascontiguousarray(img1sub)
-        t101sub = np.ascontiguousarray(t101sub)
-        t1 = np.ascontiguousarray(t1)
-        if len(img1sub) == 0:
+        data = np.ascontiguousarray(data, dtype=np.double)
+        t1 = np.ascontiguousarray(t1, dtype=np.double)
+        times = np.ascontiguousarray(times)
+        if len(data) == 0:
             raise QpException("Pk Modelling - no unmasked data found!")
 
-        Pkclass = PyPk(t1, img1sub, t101sub)
+        Pkclass = PyPk(times, data, t1)
         Pkclass.set_bounds(ub, lb)
         Pkclass.set_parameters(r1, r2, dce_flip_angle, dce_TR, dce_TE, Dose)
 
@@ -55,8 +53,8 @@ def _run_pk(worker_id, queue, img1sub, t101sub, r1, r2, delt, injt, tr1, te1, dc
         # Iteratively process 5000 points at a time
         # (this can be performed as a multiprocess soon)
 
-        size_step = max(1, np.around(img1sub.shape[0]/5))
-        size_tot = img1sub.shape[0]
+        size_step = max(1, np.around(data.shape[0]/5))
+        size_tot = data.shape[0]
         steps1 = np.around(size_tot/size_step)
         num_row = 1.0  # Just a placeholder for the meanwhile
 
@@ -84,43 +82,39 @@ def _run_pk(worker_id, queue, img1sub, t101sub, r1, r2, delt, injt, tr1, te1, dc
         return worker_id, False, sys.exc_info()[1]
 
 class PkModellingProcess(BackgroundProcess):
+    """
+    Process which does DCE Pk modelling using the Tofts model and a choice of 
+    population AIFs
+    """
 
     PROCESS_NAME = "PkModelling"
     
     def __init__(self, ivm, **kwargs):
         BackgroundProcess.__init__(self, ivm, _run_pk, **kwargs)
         self.suffix = ""
-        self.thresh1val = 0
-        self.roi1vec = None
+        self.thresh = 0
+        self.roi = None
         self.baseline = None
-        self.shape = []
+        self.grid = None
+        self.nvols = 1
+        self.log = ""
         
     def run(self, options):
         self.log = ""
-        roi_name = options.pop('roi', None)
-        if roi_name is None:
-            roi = self.ivm.current_roi
-        elif roi_name in self.ivm.rois:
-            roi = self.ivm.rois[roi_name]
-        else:
-            raise QpException("Specified ROI not found")
-                        
+
+        data = self.get_data(options)
+        if data.ndim != 4: 
+            raise QpException("Data must be 4D for DCE PK modelling")
+
+        roi = self.get_roi(options, data.grid)
+    
         self.suffix = options.pop('suffix', '')
         if self.suffix != "": self.suffix = "_" + self.suffix
 
-        if self.ivm.main is None:
-            raise QpException("No data loaded")
-
-        img1 = self.ivm.main.std()
-        if len(img1.shape) != 4: 
-            raise QpException("Data must be 4D for DCE PK modelling")
-
-        if roi is not None:
-            roi1 = roi.std()
-        else:
-            roi1 = np.ones(img1.shape[:3])
-
-        t101 = self.ivm.data["T10"].std()
+        t1_name = options.pop("t1", "T10")
+        if t1_name not in self.ivm.data:
+            raise QpException("Could not find T1 map: %s" % t1_name)
+        t1 = self.ivm.data[t1_name].resample(data.grid)
 
         R1 = options.pop('r1')
         R2 = options.pop('r2')
@@ -129,35 +123,26 @@ class PkModellingProcess(BackgroundProcess):
         TR = options.pop('tr')
         TE = options.pop('te')
         FA = options.pop('fa')
-        self.thresh1val = options.pop('ve-thresh')
+        self.thresh = options.pop('ve-thresh')
         Dose = options.pop('dose', 0)
         model_choice = options.pop('model')
 
         # Baseline defaults to time points prior to injection
         baseline_tpts = int(1 + InjT / DelT)
         self.log += "First %i time points used for baseline normalisation\n" % baseline_tpts
-        baseline = np.mean(img1[:, :, :, :baseline_tpts], axis=-1)
+        baseline = np.mean(data.raw()[:, :, :, :baseline_tpts], axis=-1)
 
-        debug("Convert to list of enhancing voxels")
-        img1vec = np.reshape(img1, (-1, img1.shape[-1]))
-        T10vec = np.reshape(t101, (-1))
-        roi1vec = np.array(np.reshape(roi1, (-1)), dtype=bool)
-        baseline = np.reshape(baseline, (-1))
-
-        img1vec = np.array(img1vec, dtype=np.double)
-        T101vec = np.array(T10vec, dtype=np.double)
-        self.roi1vec = np.array(roi1vec, dtype=bool)
-
-        debug("subset")
-        img1sub = img1vec[roi1vec, :]
-        T101sub = T101vec[roi1vec]
-        self.baseline = baseline[roi1vec]
+        self.grid = data.grid
+        self.nvols = data.nvols
+        self.roi = roi.raw()
+        data_vec = data.raw()[self.roi > 0]
+        t1_vec = t1.raw()[self.roi > 0]
+        self.baseline = baseline[self.roi > 0]
 
         # Normalisation of the image - convert to signal enhancement
-        img1sub = img1sub / (np.tile(np.expand_dims(self.baseline, axis=-1), (1, img1.shape[-1])) + 0.001) - 1
+        data_vec = data_vec / (np.tile(np.expand_dims(self.baseline, axis=-1), (1, data.nvols)) + 0.001) - 1
 
-        self.shape = img1.shape
-        args = [img1sub, T101sub, R1, R2, DelT, InjT, TR, TE, FA, Dose, model_choice]
+        args = [data_vec, t1_vec, R1, R2, DelT, InjT, TR, TE, FA, Dose, model_choice]
         self.start(1, args)
 
     def timeout(self):
@@ -175,55 +160,40 @@ class PkModellingProcess(BackgroundProcess):
             var1 = self.output[0]
             self.log += var1[3]
 
-            #make sure that we are accessing whole array
-            roi1v = self.roi1vec
+            # Params: Ktrans, ve, offset, vp
+            ktrans = np.zeros(self.grid.shape)
+            ktrans[self.roi > 0] = var1[2][:, 0] * (var1[2][:, 0] < 2.0) + 2 * (var1[2][:, 0] > 2.0)
 
-            #Params: Ktrans, ve, offset, vp
-            Ktrans1 = np.zeros((roi1v.shape[0]))
-            Ktrans1[roi1v] = var1[2][:, 0] * (var1[2][:, 0] < 2.0) + 2 * (var1[2][:, 0] > 2.0)
+            ve = np.zeros(self.grid.shape)
+            ve[self.roi > 0] = var1[2][:, 1] * (var1[2][:, 1] < 2.0) + 2 * (var1[2][:, 1] > 2.0)
+            ve *= (ve > 0)
 
-            ve1 = np.zeros((roi1v.shape[0]))
-            ve1[roi1v] = var1[2][:, 1] * (var1[2][:, 1] < 2.0) + 2 * (var1[2][:, 1] > 2.0)
-            ve1 *= (ve1 > 0)
+            kep = ktrans / (ve + 0.001)
+            kep[np.logical_or(np.isnan(kep), np.isinf(kep))] = 0
+            kep *= (kep > 0)
+            kep = kep * (kep < 2.0) + 2 * (kep >= 2.0)
 
-            kep1p = Ktrans1 / (ve1 + 0.001)
-            kep1p[np.logical_or(np.isnan(kep1p), np.isinf(kep1p))] = 0
-            kep1p *= (kep1p > 0)
-            kep1 = kep1p * (kep1p < 2.0) + 2 * (kep1p >= 2.0)
+            offset = np.zeros(self.grid.shape)
+            offset[self.roi > 0] = var1[2][:, 2]
 
-            offset1 = np.zeros((roi1v.shape[0]))
-            offset1[roi1v] = var1[2][:, 2]
-
-            vp1 = np.zeros((roi1v.shape[0]))
-            vp1[roi1v] = var1[2][:, 3]
+            vp = np.zeros(self.grid.shape)
+            vp[self.roi > 0] = var1[2][:, 3]
 
             # Convert signal enhancement back to data curve
-            sig = (var1[1] + 1) * (np.tile(np.expand_dims(self.baseline, axis=-1), (1, self.shape[-1])))
-            
-            estimated_curve1 = np.zeros((roi1v.shape[0], self.shape[-1]))
-            estimated_curve1[roi1v, :] = sig
+            sig = (var1[1] + 1) * (np.tile(np.expand_dims(self.baseline, axis=-1), (1, self.nvols)))
+            estimated = np.zeros(self.grid.shape + [self.nvols,])
+            estimated[self.roi > 0] = sig
 
-            residual1 = np.zeros((roi1v.shape[0]))
-            residual1[roi1v] = var1[0]
+            # Thresholding according to upper limit
+            p = np.percentile(ktrans, self.thresh)
+            ktrans[ktrans > p] = p
+            p = np.percentile(kep, self.thresh)
+            kep[kep > p] = p
 
-            # Convert to list of enhancing voxels
-            Ktrans1vol = np.reshape(Ktrans1, (self.shape[:-1]))
-            ve1vol = np.reshape(ve1, (self.shape[:-1]))
-            offset1vol = np.reshape(offset1, (self.shape[:-1]))
-            vp1vol = np.reshape(vp1, (self.shape[:-1]))
-            kep1vol = np.reshape(kep1, (self.shape[:-1]))
-            estimated1vol = np.reshape(estimated_curve1, self.shape)
-
-            #thresholding according to upper limit
-            p = np.percentile(Ktrans1vol, self.thresh1val)
-            Ktrans1vol[Ktrans1vol > p] = p
-            p = np.percentile(kep1vol, self.thresh1val)
-            kep1vol[kep1vol > p] = p
-
-            self.ivm.add_data(Ktrans1vol, 'ktrans'+self.suffix, make_current=True)
-            self.ivm.add_data(ve1vol, name='ve'+self.suffix)
-            self.ivm.add_data(kep1vol, name='kep'+self.suffix)
-            self.ivm.add_data(offset1vol, name='offset'+self.suffix)
-            self.ivm.add_data(vp1vol, name='vp'+self.suffix)
-            self.ivm.add_data(estimated1vol, name="model_curves"+self.suffix)
+            self.ivm.add_data(ktrans, name='ktrans' + self.suffix, grid=self.grid, make_current=True)
+            self.ivm.add_data(ve, name='ve' + self.suffix, grid=self.grid)
+            self.ivm.add_data(kep, name='kep' + self.suffix, grid=self.grid)
+            self.ivm.add_data(offset, name='offset' + self.suffix, grid=self.grid)
+            self.ivm.add_data(vp, name='vp' + self.suffix, grid=self.grid)
+            self.ivm.add_data(estimated, name="model_curves" + self.suffix, grid=self.grid)
             
