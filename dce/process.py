@@ -143,7 +143,7 @@ class PkModellingProcess(BackgroundProcess):
         data_vec = data_vec / (np.tile(np.expand_dims(self.baseline, axis=-1), (1, data.nvols)) + 0.001) - 1
 
         args = [data_vec, t1_vec, R1, R2, DelT, InjT, TR, TE, FA, Dose, model_choice]
-        self.start(1, args)
+        self.start(args)
 
     def timeout(self):
         if self.queue.empty(): return
