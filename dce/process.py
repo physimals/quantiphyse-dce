@@ -9,7 +9,7 @@ import time
 import numpy as np
 
 from quantiphyse.utils import debug, QpException
-from quantiphyse.processes import Process, BackgroundProcess
+from quantiphyse.processes import Process
 
 from .pk_model import PyPk
 
@@ -81,7 +81,7 @@ def _run_pk(worker_id, queue, data, t1, r1, r2, delt, injt, tr1, te1, dce_flip_a
     except:
         return worker_id, False, sys.exc_info()[1]
 
-class PkModellingProcess(BackgroundProcess):
+class PkModellingProcess(Process):
     """
     Process which does DCE Pk modelling using the Tofts model and a choice of 
     population AIFs
@@ -90,7 +90,7 @@ class PkModellingProcess(BackgroundProcess):
     PROCESS_NAME = "PkModelling"
     
     def __init__(self, ivm, **kwargs):
-        BackgroundProcess.__init__(self, ivm, _run_pk, **kwargs)
+        Process.__init__(self, ivm, worker_fn=_run_pk, **kwargs)
         self.suffix = ""
         self.thresh = 0
         self.roi = None
@@ -143,7 +143,7 @@ class PkModellingProcess(BackgroundProcess):
         data_vec = data_vec / (np.tile(np.expand_dims(self.baseline, axis=-1), (1, data.nvols)) + 0.001) - 1
 
         args = [data_vec, t1_vec, R1, R2, DelT, InjT, TR, TE, FA, Dose, model_choice]
-        self.start(args)
+        self.start_bg(args)
 
     def timeout(self):
         if self.queue.empty(): return
@@ -157,7 +157,7 @@ class PkModellingProcess(BackgroundProcess):
         """
         if self.status == Process.SUCCEEDED:
             # Only one worker - get its output
-            var1 = self.output[0]
+            var1 = self.worker_output[0]
             self.log += var1[3]
 
             # Params: Ktrans, ve, offset, vp
