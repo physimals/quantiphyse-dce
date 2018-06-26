@@ -9,7 +9,7 @@ from __future__ import division, unicode_literals, absolute_import, print_functi
 from PySide import QtGui
 
 from quantiphyse.gui.widgets import QpWidget, Citation, TitleWidget, RunBox
-from quantiphyse.utils import debug, warn, get_plugins, QpException
+from quantiphyse.utils import get_plugins, QpException
 
 from ._version import __version__
 from .process import PkModellingProcess
