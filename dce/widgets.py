@@ -8,7 +8,7 @@ from __future__ import division, unicode_literals, absolute_import, print_functi
 
 from PySide import QtGui
 
-from quantiphyse.gui.widgets import QpWidget, Citation, TitleWidget, RunBox
+from quantiphyse.gui.widgets import QpWidget, Citation, TitleWidget, RunBox, OverlayCombo, RoiCombo
 from quantiphyse.utils import get_plugins, QpException
 
 from ._version import __version__
@@ -28,6 +28,29 @@ class DceWidget(QpWidget):
         
         title = TitleWidget(self, "PK Modelling", help="pk", batch_btn=True, opts_btn=False)
         main_vbox.addWidget(title)
+
+        # Data
+        hbox = QtGui.QHBoxLayout()
+        data_box = QtGui.QGroupBox()
+        data_box.setTitle('Input Data')
+        grid = QtGui.QGridLayout()
+        data_box.setLayout(grid)
+
+        grid.addWidget(QtGui.QLabel("DCE data"), 0, 0)
+        self.dce_data = OverlayCombo(self.ivm)
+        grid.addWidget(self.dce_data, 0, 1)
+
+        grid.addWidget(QtGui.QLabel("ROI"), 1, 0)
+        self.roi = RoiCombo(self.ivm)
+        grid.addWidget(self.roi, 1, 1)
+
+        grid.addWidget(QtGui.QLabel("T1 map"), 2, 0)
+        self.t1_data = OverlayCombo(self.ivm, static_only=True)
+        grid.addWidget(self.t1_data, 2, 1)
+
+        hbox.addWidget(data_box)
+        hbox.addStretch(1)
+        main_vbox.addLayout(hbox)
 
         # Inputs
         param_box = QtGui.QGroupBox()
@@ -95,6 +118,9 @@ class DceWidget(QpWidget):
 
     def get_rundata(self):
         options = {}
+        options["data"] = self.dce_data.currentText()
+        options["roi"] = self.roi.currentText()
+        options["t1"] = self.t1_data.currentText()
         options["r1"] = float(self.valR1.text())
         options["r2"] = float(self.valR2.text())
         options["dt"] = float(self.valDelT.text())
