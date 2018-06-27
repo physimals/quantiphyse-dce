@@ -6,12 +6,16 @@ Copyright (c) 2013-2018 University of Oxford
 
 import sys
 import time
+import logging
+
 import numpy as np
 
 from quantiphyse.utils import QpException
 from quantiphyse.processes import Process
 
 from .pk_model import PyPk
+
+LOG = logging.getLogger(__name__)
 
 def _run_pk(worker_id, queue, data, t1, r1, r2, delt, injt, tr1, te1, dce_flip_angle, dose, model_choice):
     """
@@ -58,8 +62,8 @@ def _run_pk(worker_id, queue, data, t1, r1, r2, delt, injt, tr1, te1, dce_flip_a
         steps1 = np.around(size_tot/size_step)
         num_row = 1.0  # Just a placeholder for the meanwhile
 
-        self.debug("Number of voxels per step: ", size_step)
-        self.debug("Number of steps: ", steps1)
+        LOG.debug("Number of voxels per step: ", size_step)
+        LOG.debug("Number of steps: ", steps1)
         queue.put((num_row, 1))
         for ii in range(int(steps1)):
             if ii > 0:
