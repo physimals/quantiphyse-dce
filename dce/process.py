@@ -194,10 +194,10 @@ class PkModellingProcess(Process):
             p = np.percentile(kep, self.thresh)
             kep[kep > p] = p
 
-            self.ivm.add_data(ktrans, name='ktrans' + self.suffix, grid=self.grid, make_current=True)
-            self.ivm.add_data(ve, name='ve' + self.suffix, grid=self.grid)
-            self.ivm.add_data(kep, name='kep' + self.suffix, grid=self.grid)
-            self.ivm.add_data(offset, name='offset' + self.suffix, grid=self.grid)
-            self.ivm.add_data(vp, name='vp' + self.suffix, grid=self.grid)
-            self.ivm.add_data(estimated, name="model_curves" + self.suffix, grid=self.grid)
+            self.ivm.add(ktrans, name='ktrans' + self.suffix, grid=self.grid, make_current=True)
+            self.ivm.add(ve, name='ve' + self.suffix, grid=self.grid)
+            self.ivm.add(kep, name='kep' + self.suffix, grid=self.grid)
+            self.ivm.add(offset, name='offset' + self.suffix, grid=self.grid)
+            self.ivm.add(vp, name='vp' + self.suffix, grid=self.grid)
+            self.ivm.add(estimated, name="model_curves" + self.suffix, grid=self.grid)
             
