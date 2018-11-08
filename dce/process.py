@@ -149,19 +149,19 @@ class PkModellingProcess(Process):
         args = [data_vec, t1_vec, R1, R2, DelT, InjT, TR, TE, FA, Dose, model_choice]
         self.start_bg(args)
 
-    def timeout(self):
-        if self.queue.empty(): return
-        while not self.queue.empty():
-            _, progress = self.queue.get()
+    def timeout(self, queue):
+        if queue.empty(): return
+        while not queue.empty():
+            _, progress = queue.get()
         self.sig_progress.emit(float(progress)/100)
 
-    def finished(self):
+    def finished(self, worker_output):
         """
         Add output data to the IVM
         """
         if self.status == Process.SUCCEEDED:
             # Only one worker - get its output
-            var1 = self.worker_output[0]
+            var1 = worker_output[0]
             self.log += var1[3]
 
             # Params: Ktrans, ve, offset, vp
