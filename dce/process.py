@@ -101,11 +101,8 @@ class PkModellingProcess(Process):
         self.baseline = None
         self.grid = None
         self.nvols = 1
-        self.log = ""
         
     def run(self, options):
-        self.log = ""
-
         data = self.get_data(options)
         if data.ndim != 4: 
             raise QpException("Data must be 4D for DCE PK modelling")
@@ -133,7 +130,7 @@ class PkModellingProcess(Process):
 
         # Baseline defaults to time points prior to injection
         baseline_tpts = int(1 + InjT / DelT)
-        self.log += "First %i time points used for baseline normalisation\n" % baseline_tpts
+        self.log("First %i time points used for baseline normalisation\n" % baseline_tpts)
         baseline = np.mean(data.raw()[:, :, :, :baseline_tpts], axis=-1)
 
         self.grid = data.grid
@@ -162,7 +159,7 @@ class PkModellingProcess(Process):
         if self.status == Process.SUCCEEDED:
             # Only one worker - get its output
             var1 = worker_output[0]
-            self.log += var1[3]
+            self.log(var1[3])
 
             # Params: Ktrans, ve, offset, vp
             ktrans = np.zeros(self.grid.shape)
