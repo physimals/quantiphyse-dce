@@ -81,7 +81,7 @@ class FabberDceWidget(QpWidget):
     DCE modelling, using the Fabber process
     """
     def __init__(self, **kwargs):
-        QpWidget.__init__(self, name="Fabber DCE", icon="fabber", group="DCE-MRI", desc="Bayesian DCE modelling", **kwargs)
+        QpWidget.__init__(self, name="Fabber DCE", icon="dce", group="DCE-MRI", desc="Bayesian DCE modelling", **kwargs)
         
     def init_ui(self):
         vbox = QtGui.QVBoxLayout()
