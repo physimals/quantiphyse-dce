@@ -5,7 +5,6 @@ Copyright (c) 2013-2018 University of Oxford
 """
 
 import sys
-import time
 import logging
 
 import numpy as np
@@ -22,13 +21,12 @@ def _run_pk(worker_id, queue, data, t1, r1, r2, delt, injt, tr1, te1, dce_flip_a
     Simple function to run the c++ pk modelling code. Must be a function to work with multiprocessing
     """
     try:
-        log = ""
+        log = "PkModelling\n-----------\n"
         times = np.arange(0, data.shape[-1])*delt
         # conversion to minutes
         times = times/60.0
 
         injtmins = injt/60.0
-
         Dose = dose
 
         # conversion to seconds
@@ -55,22 +53,19 @@ def _run_pk(worker_id, queue, data, t1, r1, r2, delt, injt, tr1, te1, dce_flip_a
         log += Pkclass.rinit(model_choice, injtmins)
 
         # Iteratively process 5000 points at a time
-        # (this can be performed as a multiprocess soon)
-
         size_step = max(1, np.around(data.shape[0]/5))
         size_tot = data.shape[0]
         steps1 = np.around(size_tot/size_step)
         num_row = 1.0  # Just a placeholder for the meanwhile
 
-        LOG.debug("Number of voxels per step: ", size_step)
-        LOG.debug("Number of steps: ", steps1)
+        log += "Number of voxels per step: %i\n" % size_step
+        log += "Number of steps: %i\n" % steps1
         queue.put((num_row, 1))
         for ii in range(int(steps1)):
             if ii > 0:
                 progress = float(ii) / float(steps1) * 100
                 queue.put((num_row, progress))
 
-            time.sleep(0.2)  # sleeping seems to allow queue to be flushed out correctly
             log += Pkclass.run(size_step)
 
         # Get outputs
@@ -80,7 +75,6 @@ def _run_pk(worker_id, queue, data, t1, r1, r2, delt, injt, tr1, te1, dce_flip_a
 
         # final update to progress bar
         queue.put((num_row, 100))
-        time.sleep(0.2)  # sleeping seems to allow queue to be flushed out correctly
         return worker_id, True, (res1, fcurve1, params2, log)
     except:
         return worker_id, False, sys.exc_info()[1]
@@ -143,7 +137,7 @@ class PkModellingProcess(Process):
         # Normalisation of the image - convert to signal enhancement
         data_vec = data_vec / (np.tile(np.expand_dims(self.baseline, axis=-1), (1, data.nvols)) + 0.001) - 1
 
-        args = [data_vec, t1_vec, R1, R2, DelT, InjT, TR, TE, FA, Dose, model_choice]
+        args = [data_vec, t1_vec, R1, R2, DelT, InjT, TR, TE, FA, Dose, model_choice]s
         self.start_bg(args)
 
     def timeout(self, queue):
@@ -163,6 +157,7 @@ class PkModellingProcess(Process):
 
             # Params: Ktrans, ve, offset, vp
             ktrans = np.zeros(self.grid.shape)
+            
             ktrans[self.roi > 0] = var1[2][:, 0] * (var1[2][:, 0] < 2.0) + 2 * (var1[2][:, 0] > 2.0)
 
             ve = np.zeros(self.grid.shape)
@@ -182,7 +177,7 @@ class PkModellingProcess(Process):
 
             # Convert signal enhancement back to data curve
             sig = (var1[1] + 1) * (np.tile(np.expand_dims(self.baseline, axis=-1), (1, self.nvols)))
-            estimated = np.zeros(self.grid.shape + [self.nvols,])
+            estimated = np.zeros(list(self.grid.shape) + [self.nvols,])
             estimated[self.roi > 0] = sig
 
             # Thresholding according to upper limit
