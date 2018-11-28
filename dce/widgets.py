@@ -8,11 +8,11 @@ from __future__ import division, unicode_literals, absolute_import, print_functi
 
 from PySide import QtGui
 
-from quantiphyse.gui.widgets import QpWidget, Citation, TitleWidget, RunBox, OverlayCombo, RoiCombo
-from quantiphyse.utils import get_plugins, QpException
+from quantiphyse.gui.widgets import QpWidget, Citation, TitleWidget, RunWidget
+from quantiphyse.gui.options import OptionBox, DataOption, NumericOption, ChoiceOption, VectorOption
+from quantiphyse.utils import get_plugins
 
 from ._version import __version__
-from .process import PkModellingProcess
 
 class DceWidget(QpWidget):
     """
@@ -20,121 +20,57 @@ class DceWidget(QpWidget):
     """
 
     def __init__(self, **kwargs):
-        super(DceWidget, self).__init__(name="PK Modelling", desc="Pharmacokinetic Modelling", 
+        super(DceWidget, self).__init__(name="PK Modelling", desc="DCE kinetic modelling", 
                                         icon="pk", group="DCE-MRI", **kwargs)
 
     def init_ui(self):
-        main_vbox = QtGui.QVBoxLayout()
+        vbox = QtGui.QVBoxLayout()
+        self.setLayout(vbox)
         
-        title = TitleWidget(self, "PK Modelling", help="pk", batch_btn=True, opts_btn=False)
-        main_vbox.addWidget(title)
+        title = TitleWidget(self, help="pk", batch_btn=True, opts_btn=False)
+        vbox.addWidget(title)
 
-        # Data
-        hbox = QtGui.QHBoxLayout()
-        data_box = QtGui.QGroupBox()
-        data_box.setTitle('Input Data')
-        grid = QtGui.QGridLayout()
-        data_box.setLayout(grid)
+        self.input = OptionBox("Input data")
+        self.input.add("DCE data", DataOption(self.ivm, include_3d=False, include_4d=True), key="data")
+        self.input.add("ROI", DataOption(self.ivm, data=False, rois=True), key="roi")
+        self.input.add("T1 map", DataOption(self.ivm, include_3d=True, include_4d=False), key="t1")
+        vbox.addWidget(self.input)
 
-        grid.addWidget(QtGui.QLabel("DCE data"), 0, 0)
-        self.dce_data = OverlayCombo(self.ivm)
-        grid.addWidget(self.dce_data, 0, 1)
+        self.options = OptionBox("Options")
+        self.options.add("R1", NumericOption(minval=0, maxval=10, default=3.7), key="r1")
+        self.options.add("R2", NumericOption(minval=0, maxval=10, default=4.8), key="r2")
+        self.options.add("Flip angle", NumericOption(minval=0, maxval=90, default=12), key="fa")
+        self.options.add("TR (ms)", NumericOption(minval=0, maxval=10, default=4.108), key="tr")
+        self.options.add("TE (ms)", NumericOption(minval=0, maxval=10, default=1.832), key="te")
+        self.options.add("Time between volumes (s)", NumericOption(minval=0, maxval=30, default=12), key="dt")
+        self.options.add("Estimated injection time (s)", NumericOption(minval=0, maxval=60, default=30), key="tinj")
+        self.options.add("Ktrans/kep percentile threshold", NumericOption(minval=0, maxval=100, default=100), key="ve-thresh")
+        self.options.add("Dose (mM/kg) - preclinical only", NumericOption(minval=0, maxval=5, default=0.6), key="dose", visible=False)
 
-        grid.addWidget(QtGui.QLabel("ROI"), 1, 0)
-        self.roi = RoiCombo(self.ivm)
-        grid.addWidget(self.roi, 1, 1)
-
-        grid.addWidget(QtGui.QLabel("T1 map"), 2, 0)
-        self.t1_data = OverlayCombo(self.ivm, static_only=True)
-        grid.addWidget(self.t1_data, 2, 1)
-
-        hbox.addWidget(data_box)
-        hbox.addStretch(1)
-        main_vbox.addLayout(hbox)
-
-        # Inputs
-        param_box = QtGui.QGroupBox()
-        param_box.setTitle('Parameters')
-        input_grid = QtGui.QGridLayout()
-        input_grid.addWidget(QtGui.QLabel('R1'), 0, 0)
-        self.valR1 = QtGui.QLineEdit('3.7', self)
-        input_grid.addWidget(self.valR1, 0, 1)
-        input_grid.addWidget(QtGui.QLabel('R2'), 1, 0)
-        self.valR2 = QtGui.QLineEdit('4.8', self)
-        input_grid.addWidget(self.valR2, 1, 1)
-        input_grid.addWidget(QtGui.QLabel('Flip Angle (degrees)'), 2, 0)
-        self.valFA = QtGui.QLineEdit('12.0', self)
-        input_grid.addWidget(self.valFA, 2, 1)
-        input_grid.addWidget(QtGui.QLabel('TR (ms)'), 3, 0)
-        self.valTR = QtGui.QLineEdit('4.108', self)
-        input_grid.addWidget(self.valTR, 3, 1)
-        input_grid.addWidget(QtGui.QLabel('TE (ms)'), 4, 0)
-        self.valTE = QtGui.QLineEdit('1.832', self)
-        input_grid.addWidget(self.valTE, 4, 1)
-        input_grid.addWidget(QtGui.QLabel('delta T (s)'), 5, 0)
-        self.valDelT = QtGui.QLineEdit('12', self)
-        input_grid.addWidget(self.valDelT, 5, 1)
-        input_grid.addWidget(QtGui.QLabel('Estimated Injection time (s)'), 6, 0)
-        self.valInjT = QtGui.QLineEdit('30', self)
-        input_grid.addWidget(self.valInjT, 6, 1)
-        input_grid.addWidget(QtGui.QLabel('Ktrans/kep percentile threshold'), 7, 0)
-        self.thresh1 = QtGui.QLineEdit('100', self)
-        input_grid.addWidget(self.thresh1, 7, 1)
-        input_grid.addWidget(QtGui.QLabel('Dose (mM/kg) (preclinical only)'), 8, 0)
-        self.valDose = QtGui.QLineEdit('0.6', self)
-        input_grid.addWidget(self.valDose, 8, 1)
-        param_box.setLayout(input_grid)
-        hbox = QtGui.QHBoxLayout()
-        hbox.addWidget(param_box)
-        hbox.addStretch(2)
-        main_vbox.addLayout(hbox)
-
-        # Model choice
-        aif_choice = QtGui.QGroupBox()
-        aif_choice.setTitle('Pharmacokinetic model choice')
-        hbox = QtGui.QHBoxLayout()
-        hbox.addWidget(QtGui.QLabel('AIF choice'))
-        self.combo = QtGui.QComboBox(self)
-        self.combo.addItem("Clinical: Toft / OrtonAIF (3rd) with offset")
-        self.combo.addItem("Clinical: Toft / OrtonAIF (3rd) no offset")
-        self.combo.addItem("Preclinical: Toft / BiexpAIF (Heilmann)")
-        self.combo.addItem("Preclinical: Ext Toft / BiexpAIF (Heilmann)")
-        hbox.addWidget(self.combo)
-        hbox.addStretch(1)
-        aif_choice.setLayout(hbox)
-        main_vbox.addWidget(aif_choice)
+        models = [
+            "Clinical: Toft / OrtonAIF (3rd) with offset",
+            "Clinical: Toft / OrtonAIF (3rd) no offset",
+            "Preclinical: Toft / BiexpAIF (Heilmann)",
+            "Preclinical: Ext Toft / BiexpAIF (Heilmann)",
+        ]
+        self.options.add("Pharmacokinetic model choice", ChoiceOption(models, [1, 2, 3, 4]), key="model")
+        self.options.option("model").sig_changed.connect(self._aif_changed)
+        vbox.addWidget(self.options)
 
         # Run button and progress
-        runBox = RunBox(self.get_process, self.get_rundata, title="Run modelling", save_option=False)
-        main_vbox.addWidget(runBox)
+        vbox.addWidget(RunWidget(self, title="Run modelling"))
+        vbox.addStretch(1)
+        self._aif_changed()
 
-        main_vbox.addStretch()
-        self.setLayout(main_vbox)
+    def _aif_changed(self):
+        self.options.set_visible("dose", self.options.option("model").value in (2, 3))
 
-        self.process = PkModellingProcess(self.ivm)
-
-    def get_process(self):
-        return self.process
-
-    def get_rundata(self):
-        options = {}
-        options["data"] = self.dce_data.currentText()
-        options["roi"] = self.roi.currentText()
-        options["t1"] = self.t1_data.currentText()
-        options["r1"] = float(self.valR1.text())
-        options["r2"] = float(self.valR2.text())
-        options["dt"] = float(self.valDelT.text())
-        options["tinj"] = float(self.valInjT.text())
-        options["tr"] = float(self.valTR.text())
-        options["te"] = float(self.valTE.text())
-        options["fa"] = float(self.valFA.text())
-        options["ve-thresh"] = float(self.thresh1.text())
-        options["dose"] = float(self.valDose.text())
-        options["model"] = self.combo.currentIndex() + 1
-        return options
-
-    def batch_options(self):
-        return "PkModelling", self.get_rundata()
+    def processes(self):
+        options = self.input.values()
+        options.update(self.options.values())
+        return {
+            "PkModelling" : options
+        }
 
 FAB_CITE_TITLE = "Variational Bayesian inference for a non-linear forward model"
 FAB_CITE_AUTHOR = "Chappell MA, Groves AR, Whitcher B, Woolrich MW."
@@ -145,7 +81,7 @@ class FabberDceWidget(QpWidget):
     DCE modelling, using the Fabber process
     """
     def __init__(self, **kwargs):
-        QpWidget.__init__(self, name="DCE", icon="fabber",  group="Fabber", desc="DCE modelling", **kwargs)
+        QpWidget.__init__(self, name="Fabber DCE", icon="fabber", group="DCE-MRI", desc="Bayesian DCE modelling", **kwargs)
         
     def init_ui(self):
         vbox = QtGui.QVBoxLayout()
@@ -166,20 +102,66 @@ class FabberDceWidget(QpWidget):
         cite = Citation(FAB_CITE_TITLE, FAB_CITE_AUTHOR, FAB_CITE_JOURNAL)
         vbox.addWidget(cite)
 
+        self.input = OptionBox("Input data")
+        self.input.add("DCE data", DataOption(self.ivm, include_3d=False, include_4d=True), key="data")
+        self.input.add("ROI", DataOption(self.ivm, data=False, rois=True), key="roi")
+        self.input.add("T1 map", DataOption(self.ivm, include_3d=True, include_4d=False), key="t1")
+        vbox.addWidget(self.input)
+
+        self.options = OptionBox("Options")
+        self.options.add("R1", NumericOption(minval=0, maxval=10, default=3.7), key="r1")
+        #self.options.add("R2", NumericOption(minval=0, maxval=10, default=4.8), key="r2")
+        self.options.add("Flip angle", NumericOption(minval=0, maxval=90, default=12), key="fa")
+        self.options.add("TR (ms)", NumericOption(minval=0, maxval=10, default=4.108), key="tr")
+        #self.options.add("TE (ms)", NumericOption(minval=0, maxval=10, default=1.832), key="te")
+        self.options.add("Time between volumes (s)", NumericOption(minval=0, maxval=30, default=12), key="delt")
+        self.options.add("Estimated injection time (s)", NumericOption(minval=0, maxval=60, default=30), key="delay")
+        self.options.add("AIF", ChoiceOption(["Population (Orton 2008)", "Measured DCE signal", "Measured concentration curve"], ["orton", "signal", "conc"]), key="aif")
+        self.options.add("AIF source", ChoiceOption(["Global sequence of values", "Voxelwise image"], ["global", "voxelwise"]), key="aif-source")
+        self.options.add("AIF", VectorOption([0, ]), key="aif-data")
+        self.options.add("AIF image", DataOption(self.ivm), key="suppdata")
+        self.options.option("aif").sig_changed.connect(self._aif_changed)
+        self.options.option("aif-source").sig_changed.connect(self._aif_changed)
+        vbox.addWidget(self.options)
+
+        # Run button and progress
+        vbox.addWidget(RunWidget(self, title="Run modelling"))
         vbox.addStretch(1)
 
-    def get_process(self):
-        return self.FabberProcess(self.ivm)
+        self._aif_changed()
 
-    def batch_options(self):
-        return "Fabber", self.get_rundata()
+    def _aif_changed(self):
+        self.options.set_visible("aif-source", self.options.option("aif").value != "orton")
+        self.options.set_visible("suppdata", self.options.option("aif").value != "orton" and self.options.option("aif-source").value == "voxelwise")
+        self.options.set_visible("aif-data", self.options.option("aif").value != "orton" and self.options.option("aif-source").value == "global")
 
-    def get_rundata(self):
-        rundata = {}
-        rundata["model-group"] = "dsc"
-        rundata["save-mean"] = ""
-        rundata["save-model-fit"] = ""
-        rundata["noise"] = "white"
-        rundata["max-iterations"] = "20"
-        rundata["model"] = "dsc"
-        return rundata
+    def processes(self):
+        options = {
+            "model-group" : "dce",
+            "model" : "dce_tofts",
+            "method" : "vb",
+            "noise" : "white",
+            "save-mean" : True,
+            "save-model-fit" : True,
+            "infer-t10" : True,
+            "infer-delay" : True,
+            "infer-sig0" : True,
+            "auto-init-delay" : True,
+            "PSP_byname1" : "t10",
+            "PSP_byname1_type" : "I",
+        }
+        options.update(self.input.values())
+        options.update(self.options.values())
+
+        # Option modifications for Fabber
+        options.pop("aif-source", None)
+        options["PSP_byname1_image"] = options.pop("t1")
+
+        # Times in minutes and TR in s
+        options["delt"] = options["delt"] / 60 
+        options["delay"] = options["delay"] / 60
+        options["tr"] = options["tr"] / 1000
+
+        return {
+            "Fabber" : options
+        }
