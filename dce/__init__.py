@@ -11,6 +11,6 @@ from .process import PkModellingProcess
 
 QP_MANIFEST = {
     "processes" : [PkModellingProcess,],
-    "widgets" : [DceWidget,],
+    "widgets" : [DceWidget, FabberDceWidget],
     "fabber-libs" : [get_local_shlib("fabber_models_dce", __file__)]
 }
