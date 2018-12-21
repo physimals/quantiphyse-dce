@@ -20,7 +20,7 @@ class DceWidget(QpWidget):
     """
 
     def __init__(self, **kwargs):
-        super(DceWidget, self).__init__(name="PK Modelling", desc="DCE kinetic modelling", 
+        super(DceWidget, self).__init__(name="DCE Modelling", desc="DCE kinetic modelling", 
                                         icon="pk", group="DCE-MRI", **kwargs)
 
     def init_ui(self):
@@ -37,10 +37,10 @@ class DceWidget(QpWidget):
         vbox.addWidget(self.input)
 
         self.options = OptionBox("Options")
-        self.options.add("R1", NumericOption(minval=0, maxval=10, default=3.7), key="r1")
-        self.options.add("R2", NumericOption(minval=0, maxval=10, default=4.8), key="r2")
+        self.options.add("Contrast agent R1 relaxivity", NumericOption(minval=0, maxval=10, default=3.7), key="r1")
+        self.options.add("Contrast agent R2 relaxivity", NumericOption(minval=0, maxval=10, default=4.8), key="r2")
         self.options.add("Flip angle", NumericOption(minval=0, maxval=90, default=12), key="fa")
-        self.options.add("TR (ms)", NumericOption(minval=0, maxval=10, default=4.108), key="tr")
+        self.options.add("TR (s)", NumericOption(minval=0, maxval=10, default=4.108), key="tr")
         self.options.add("TE (ms)", NumericOption(minval=0, maxval=10, default=1.832), key="te")
         self.options.add("Time between volumes (s)", NumericOption(minval=0, maxval=30, default=12), key="dt")
         self.options.add("Estimated injection time (s)", NumericOption(minval=0, maxval=60, default=30), key="tinj")
@@ -112,7 +112,7 @@ class FabberDceWidget(QpWidget):
         self.options.add("R1", NumericOption(minval=0, maxval=10, default=3.7), key="r1")
         #self.options.add("R2", NumericOption(minval=0, maxval=10, default=4.8), key="r2")
         self.options.add("Flip angle", NumericOption(minval=0, maxval=90, default=12), key="fa")
-        self.options.add("TR (ms)", NumericOption(minval=0, maxval=10, default=4.108), key="tr")
+        self.options.add("TR (s)", NumericOption(minval=0, maxval=10, default=4.108), key="tr")
         #self.options.add("TE (ms)", NumericOption(minval=0, maxval=10, default=1.832), key="te")
         self.options.add("Time between volumes (s)", NumericOption(minval=0, maxval=30, default=12), key="delt")
         self.options.add("Estimated injection time (s)", NumericOption(minval=0, maxval=60, default=30), key="delay")
