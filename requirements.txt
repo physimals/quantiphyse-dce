@@ -1,0 +1,4 @@
+numpy
+quantiphyse
+quantiphyse-fabber
+cython
