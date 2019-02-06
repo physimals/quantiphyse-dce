@@ -6,6 +6,7 @@ Copyright (c) 2013-2018 University of Oxford
 
 import sys
 import logging
+import traceback
 
 import numpy as np
 
@@ -50,7 +51,7 @@ def _run_pk(worker_id, queue, data, t1, r1, r2, delt, injt, tr1, te1, dce_flip_a
 
         # Initialise fitting
         # Choose model type and injection time
-        log += Pkclass.rinit(model_choice, injtmins)
+        log += Pkclass.rinit(model_choice, injtmins).decode('utf-8')
 
         # Iteratively process 5000 points at a time
         size_step = max(1, np.around(data.shape[0]/5))
@@ -66,7 +67,7 @@ def _run_pk(worker_id, queue, data, t1, r1, r2, delt, injt, tr1, te1, dce_flip_a
                 progress = float(ii) / float(steps1) * 100
                 queue.put((num_row, progress))
 
-            log += Pkclass.run(size_step)
+            log += Pkclass.run(size_step).decode('utf-8')
 
         # Get outputs
         res1 = np.array(Pkclass.get_residual())
@@ -77,6 +78,7 @@ def _run_pk(worker_id, queue, data, t1, r1, r2, delt, injt, tr1, te1, dce_flip_a
         queue.put((num_row, 100))
         return worker_id, True, (res1, fcurve1, params2, log)
     except:
+        traceback.print_exc()
         return worker_id, False, sys.exc_info()[1]
 
 class PkModellingProcess(Process):
