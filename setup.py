@@ -95,7 +95,8 @@ def get_extensions(rootdir):
     if sys.platform.startswith('win'):
         compile_args.append('/EHsc')
     elif sys.platform.startswith('darwin'):
-        link_args.append("-stdlib=libc++")
+        compile_args += ["-mmacosx-version-min=10.9"]
+        link_args += ["-stdlib=libc++", "-mmacosx-version-min=10.9"]
 
     # PK modelling extension
     extensions.append(Extension("%s.pk_model" % MODULE,
