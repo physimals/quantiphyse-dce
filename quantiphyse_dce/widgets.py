@@ -6,7 +6,10 @@ Copyright (c) 2013-2018 University of Oxford
 
 from __future__ import division, unicode_literals, absolute_import, print_function
 
-from PySide import QtGui
+try:
+    from PySide import QtGui, QtCore, QtGui as QtWidgets
+except ImportError:
+    from PySide2 import QtGui, QtCore, QtWidgets
 
 from quantiphyse.gui.widgets import QpWidget, Citation, TitleWidget, RunWidget
 from quantiphyse.gui.options import OptionBox, DataOption, NumericOption, ChoiceOption, NumberListOption, BoolOption
