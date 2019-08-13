@@ -112,38 +112,38 @@ class FabberDceWidget(QpWidget):
         self.input.option("t1").sig_changed.connect(self._t1_map_changed)
         vbox.addWidget(self.input)
 
-        self.options = OptionBox("Acquisition")
-        self.options.add("Contrast agent R1 relaxivity (l/mmol s)", NumericOption(minval=0, maxval=10, default=3.7), key="r1")
-        self.options.add("Flip angle (\N{DEGREE SIGN})", NumericOption(minval=0, maxval=90, default=12), key="fa")
-        self.options.add("TR (ms)", NumericOption(minval=0, maxval=10, default=4.108), key="tr")
-        self.options.add("Time between volumes (s)", NumericOption(minval=0, maxval=30, default=12), key="delt")
-        self.options.add("Bolus arrival time (s)", NumericOption(minval=0, maxval=1.0, default=0), key="delay")
-        self.options.add("AIF", ChoiceOption(["Population (Orton 2008)", "Population (Parker)", "Measured DCE signal", "Measured concentration curve"], ["orton", "parker", "signal", "conc"]), key="aif")
-        self.options.add("Bolus injection time (s)", NumericOption(minval=0, maxval=60, default=30), key="tinj")
-        self.options.add("AIF data values", NumberListOption([0, ]), key="aif-data")
-        self.options.option("aif").sig_changed.connect(self._aif_changed)
-        vbox.addWidget(self.options)
+        self.acquisition = OptionBox("Acquisition")
+        self.acquisition.add("Contrast agent R1 relaxivity (l/mmol s)", NumericOption(minval=0, maxval=10, default=3.7), key="r1")
+        self.acquisition.add("Flip angle (\N{DEGREE SIGN})", NumericOption(minval=0, maxval=90, default=12), key="fa")
+        self.acquisition.add("TR (ms)", NumericOption(minval=0, maxval=10, default=4.108), key="tr")
+        self.acquisition.add("Time between volumes (s)", NumericOption(minval=0, maxval=30, default=12), key="delt")
+        vbox.addWidget(self.acquisition)
 
-        self.inference = OptionBox("Model options")
-        self.inference.add("Model", ChoiceOption(["Standard Tofts model",
-                                                  "Extended Tofts model (ETM)",
-                                                  "2 Compartment exchange model",
-                                                  "Compartmental Tissue Update (CTU) model",
-                                                  "Adiabatic Approximation to Tissue Homogeneity (AATH) Model"],
-                                                 ["dce_tofts",
-                                                  "dce_ETM",
-                                                  "dce_2CXM",
-                                                  "dce_CTU",
-                                                  "dce_AATH"]), key="model")
-        self.inference.add("T1 value", NumericOption(minval=0.0, maxval=5.0, default=1.0), key="t10")
-        self.inference.add("Allow T1 to vary", BoolOption(default=False), key="infer-t10")
-        self.inference.add("Allow bolus arrival time to vary", BoolOption(default=False), key="infer-delay")
-        self.inference.add("Infer kep rather than ve", BoolOption(default=False), key="infer-kep")
-        self.inference.add("Infer flow", BoolOption(default=True), key="infer-fp")
-        self.inference.add("Infer permeability-surface area", BoolOption(default=False), key="infer-ps")
-        self.inference.add("Spatial regularization", BoolOption(default=False), key="spatial")
-        self.inference.option("model").sig_changed.connect(self._model_changed)
-        vbox.addWidget(self.inference)
+        self.model = OptionBox("Model options")
+        self.model.add("Model", ChoiceOption(["Standard Tofts model",
+                                              "Extended Tofts model (ETM)",
+                                              "2 Compartment exchange model",
+                                              "Compartmental Tissue Update (CTU) model",
+                                              "Adiabatic Approximation to Tissue Homogeneity (AATH) Model"],
+                                             ["dce_tofts",
+                                              "dce_ETM",
+                                              "dce_2CXM",
+                                              "dce_CTU",
+                                              "dce_AATH"]), key="model")
+        self.model.add("AIF", ChoiceOption(["Population (Orton 2008)", "Population (Parker)", "Measured DCE signal", "Measured concentration curve"], ["orton", "parker", "signal", "conc"]), key="aif")
+        self.model.add("Bolus injection time (s)", NumericOption(minval=0, maxval=60, default=30), key="tinj")
+        self.model.add("AIF data values", NumberListOption([0, ]), key="aif-data")
+        self.model.add("T1 (s)", NumericOption(minval=0.0, maxval=5.0, default=1.0), key="t10")
+        self.model.add("Allow T1 to vary", BoolOption(default=False), key="infer-t10")
+        self.model.add("Bolus arrival time (s)", NumericOption(minval=0, maxval=1.0, default=0), key="delay")
+        self.model.add("Allow bolus arrival time to vary", BoolOption(default=False), key="infer-delay")
+        self.model.add("Infer kep rather than ve", BoolOption(default=False), key="infer-kep")
+        self.model.add("Infer flow", BoolOption(default=True), key="infer-fp")
+        self.model.add("Infer permeability-surface area", BoolOption(default=False), key="infer-ps")
+        self.model.add("Spatial regularization", BoolOption(default=False), key="spatial")
+        self.model.option("model").sig_changed.connect(self._model_changed)
+        self.model.option("aif").sig_changed.connect(self._aif_changed)
+        vbox.addWidget(self.model)
 
         # Run button and progress
         vbox.addWidget(RunWidget(self, title="Run modelling"))
@@ -153,17 +153,17 @@ class FabberDceWidget(QpWidget):
         self._model_changed()
 
     def _t1_map_changed(self):
-        self.inference.set_visible("t10", "t1" not in self.input.values())
+        self.model.set_visible("t10", "t1" not in self.input.values())
 
     def _aif_changed(self):
-        aif_source = self.options.option("aif").value
-        self.options.set_visible("tinj", aif_source not in ("signal", "conc"))
-        self.options.set_visible("aif-data", aif_source in ("signal", "conc"))
+        aif_source = self.model.option("aif").value
+        self.model.set_visible("tinj", aif_source not in ("signal", "conc"))
+        self.model.set_visible("aif-data", aif_source in ("signal", "conc"))
 
     def _model_changed(self):
-        self.inference.set_visible("infer-kep", self.inference.option("model").value in ("dce_tofts", "dce_ETM"))
-        self.inference.set_visible("infer-fp", self.inference.option("model").value == "dce_AATH")
-        self.inference.set_visible("infer-ps", self.inference.option("model").value == "dce_AATH")
+        self.model.set_visible("infer-kep", self.model.option("model").value in ("dce_tofts", "dce_ETM"))
+        self.model.set_visible("infer-fp", self.model.option("model").value == "dce_AATH")
+        self.model.set_visible("infer-ps", self.model.option("model").value == "dce_AATH")
 
     def processes(self):
         options = {
@@ -178,8 +178,8 @@ class FabberDceWidget(QpWidget):
             "infer-sig0" : True,
         }
         options.update(self.input.values())
-        options.update(self.options.values())
-        options.update(self.inference.values())
+        options.update(self.acquisition.values())
+        options.update(self.model.values())
 
         # Extended Tofts model is the same model name but with inference of Vp
         if options["model"] == "dce_ETM":
