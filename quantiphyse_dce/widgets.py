@@ -23,13 +23,13 @@ class DceWidget(QpWidget):
     """
 
     def __init__(self, **kwargs):
-        super(DceWidget, self).__init__(name="DCE Modelling", desc="DCE kinetic modelling", 
+        super(DceWidget, self).__init__(name="DCE Modelling", desc="DCE kinetic modelling",
                                         icon="dce", group="DCE-MRI", **kwargs)
 
     def init_ui(self):
         vbox = QtGui.QVBoxLayout()
         self.setLayout(vbox)
-        
+
         title = TitleWidget(self, help="pk", batch_btn=True, opts_btn=False)
         vbox.addWidget(title)
 
@@ -85,7 +85,7 @@ class FabberDceWidget(QpWidget):
     """
     def __init__(self, **kwargs):
         QpWidget.__init__(self, name="Bayesian DCE", icon="dce", group="DCE-MRI", desc="DCE model fitting using Bayesian inference", **kwargs)
-        
+
     def init_ui(self):
         vbox = QtGui.QVBoxLayout()
         self.setLayout(vbox)
@@ -98,10 +98,10 @@ class FabberDceWidget(QpWidget):
         if self.FabberProcess is None:
             vbox.addWidget(QtGui.QLabel("Fabber core library not found.\n\n You must install Fabber to use this widget"))
             return
-        
+
         title = TitleWidget(self, help="fabber-dsc", subtitle="DSC modelling using the Fabber process %s" % __version__)
         vbox.addWidget(title)
-              
+
         cite = Citation(FAB_CITE_TITLE, FAB_CITE_AUTHOR, FAB_CITE_JOURNAL)
         vbox.addWidget(cite)
 
@@ -117,32 +117,31 @@ class FabberDceWidget(QpWidget):
         self.options.add("Flip angle (\N{DEGREE SIGN})", NumericOption(minval=0, maxval=90, default=12), key="fa")
         self.options.add("TR (ms)", NumericOption(minval=0, maxval=10, default=4.108), key="tr")
         self.options.add("Time between volumes (s)", NumericOption(minval=0, maxval=30, default=12), key="delt")
-        self.options.add("Estimated injection time (s)", NumericOption(minval=0, maxval=60, default=30), key="delay")
+        self.options.add("Bolus arrival time (s)", NumericOption(minval=0, maxval=1.0, default=0), key="delay")
         self.options.add("AIF", ChoiceOption(["Population (Orton 2008)", "Population (Parker)", "Measured DCE signal", "Measured concentration curve"], ["orton", "parker", "signal", "conc"]), key="aif")
-        #self.options.add("AIF source", ChoiceOption(["Global sequence of values", "Voxelwise image"], ["global", "voxelwise"]), key="aif-source")
+        self.options.add("Bolus injection time (s)", NumericOption(minval=0, maxval=60, default=30), key="tinj")
         self.options.add("AIF data values", NumberListOption([0, ]), key="aif-data")
-        #self.options.add("AIF image", DataOption(self.ivm), key="suppdata")
         self.options.option("aif").sig_changed.connect(self._aif_changed)
-        #self.options.option("aif-source").sig_changed.connect(self._aif_changed)
         vbox.addWidget(self.options)
 
         self.inference = OptionBox("Model options")
-        self.inference.add("Model", ChoiceOption(["Standard Tofts model", 
-                                                "Extended Tofts model (ETM)", 
-                                                "2 Compartment exchange model",
-                                                "Compartmental Tissue Update (CTU) model",
-                                                "Adiabatic Approximation to Tissue Homogeneity (AATH) Model"], 
-                                               ["dce_tofts", 
-                                                "dce_ETM", 
-                                                "dce_2CXM",
-                                                "dce_CTU",
-                                                "dce_AATH"]), key="model")
+        self.inference.add("Model", ChoiceOption(["Standard Tofts model",
+                                                  "Extended Tofts model (ETM)",
+                                                  "2 Compartment exchange model",
+                                                  "Compartmental Tissue Update (CTU) model",
+                                                  "Adiabatic Approximation to Tissue Homogeneity (AATH) Model"],
+                                                 ["dce_tofts",
+                                                  "dce_ETM",
+                                                  "dce_2CXM",
+                                                  "dce_CTU",
+                                                  "dce_AATH"]), key="model")
         self.inference.add("T1 value", NumericOption(minval=0.0, maxval=5.0, default=1.0), key="t10")
         self.inference.add("Allow T1 to vary", BoolOption(default=False), key="infer-t10")
-        self.inference.add("Allow injection time to vary", BoolOption(default=False), key="infer-delay")
+        self.inference.add("Allow bolus arrival time to vary", BoolOption(default=False), key="infer-delay")
         self.inference.add("Infer kep rather than ve", BoolOption(default=False), key="infer-kep")
         self.inference.add("Infer flow", BoolOption(default=True), key="infer-fp")
         self.inference.add("Infer permeability-surface area", BoolOption(default=False), key="infer-ps")
+        self.inference.add("Spatial regularization", BoolOption(default=False), key="spatial")
         self.inference.option("model").sig_changed.connect(self._model_changed)
         vbox.addWidget(self.inference)
 
@@ -157,9 +156,9 @@ class FabberDceWidget(QpWidget):
         self.inference.set_visible("t10", "t1" not in self.input.values())
 
     def _aif_changed(self):
-        #self.options.set_visible("aif-source", self.options.option("aif").value in ("signal", "conc"))
-        #self.options.set_visible("suppdata", self.options.option("aif").value != "orton" and self.options.option("aif-source").value == "voxelwise")
-        self.options.set_visible("aif-data", self.options.option("aif").value in ("signal", "conc"))
+        aif_source = self.options.option("aif").value
+        self.options.set_visible("tinj", aif_source not in ("signal", "conc"))
+        self.options.set_visible("aif-data", aif_source in ("signal", "conc"))
 
     def _model_changed(self):
         self.inference.set_visible("infer-kep", self.inference.option("model").value in ("dce_tofts", "dce_ETM"))
@@ -182,26 +181,38 @@ class FabberDceWidget(QpWidget):
         options.update(self.options.values())
         options.update(self.inference.values())
 
-        # Hack for extended Tofts model
+        # Extended Tofts model is the same model name but with inference of Vp
         if options["model"] == "dce_ETM":
             options["model"] = "dce_tofts"
             options["infer-vp"] = True
 
-        # Option modifications for Fabber
-        options.pop("aif-source", None)
-
-        # T1 map 
+        # T1 map is an image prior
         if "t1" in options:
             options.update({
                 "PSP_byname1" : "t10",
                 "PSP_byname1_type" : "I",
                 "PSP_byname1_image" : options.pop("t1")
             })
+            if not options["infer-t10"]:
+                # To treat the image prior as ground truth need to put T10
+                # into the model but give the image prior a high precision so
+                # the parameter doesn't actually have any freedom to vary
+                options["infer-t10"] = True
+                options["PSP_byname1_prec"] = 1e6
+
+        # Delay time to include injection time for population AIF
+        if "tinj" in options:
+            options["delay"] = options["delay"] + options["tinj"]
 
         # Times in minutes and TR in s
-        options["delt"] = options["delt"] / 60 
+        options["delt"] = options["delt"] / 60
         options["delay"] = options["delay"] / 60
         options["tr"] = options["tr"] / 1000
+
+        # Spatial mode
+        if options.pop("spatial", False):
+            options["method"] = "spatialvb"
+            options["param-spatial-priors"] = "M+"
 
         return {
             "Fabber" : options
