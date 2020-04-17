@@ -135,7 +135,7 @@ class FabberDceWidget(QpWidget):
         self.model.add("AIF data values", NumberListOption([0, ]), key="aif-data")
         self.model.add("T1 (s)", NumericOption(minval=0.0, maxval=5.0, default=1.0), key="t10")
         self.model.add("Allow T1 to vary", BoolOption(default=False), key="infer-t10")
-        self.model.add("Bolus arrival time (s)", NumericOption(minval=0, maxval=1.0, default=0), key="delay")
+        self.model.add("Bolus arrival time (s)", NumericOption(minval=0, maxval=2.0, default=0), key="delay")
         self.model.add("Allow bolus arrival time to vary", BoolOption(default=False), key="infer-delay")
         self.model.add("Infer kep rather than ve", BoolOption(default=False), key="infer-kep")
         self.model.add("Infer flow", BoolOption(default=True), key="infer-fp")
@@ -202,7 +202,7 @@ class FabberDceWidget(QpWidget):
 
         # Delay time to include injection time for population AIF
         if "tinj" in options:
-            options["delay"] = options["delay"] + options["tinj"]
+            options["delay"] = options["delay"] + options.pop("tinj")
 
         # Times in minutes and TR in s
         options["delt"] = options["delt"] / 60
