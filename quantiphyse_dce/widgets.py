@@ -6,10 +6,7 @@ Copyright (c) 2013-2018 University of Oxford
 
 from __future__ import division, unicode_literals, absolute_import, print_function
 
-try:
-    from PySide import QtGui, QtCore, QtGui as QtWidgets
-except ImportError:
-    from PySide2 import QtGui, QtCore, QtWidgets
+from PySide2 import QtGui, QtCore, QtWidgets
 
 from quantiphyse.gui.widgets import QpWidget, Citation, TitleWidget, RunWidget
 from quantiphyse.gui.options import OptionBox, DataOption, NumericOption, ChoiceOption, NumberListOption, BoolOption
@@ -27,7 +24,7 @@ class DceWidget(QpWidget):
                                         icon="dce", group="DCE-MRI", **kwargs)
 
     def init_ui(self):
-        vbox = QtGui.QVBoxLayout()
+        vbox = QtWidgets.QVBoxLayout()
         self.setLayout(vbox)
 
         title = TitleWidget(self, help="pk", batch_btn=True, opts_btn=False)
@@ -87,7 +84,7 @@ class FabberDceWidget(QpWidget):
         QpWidget.__init__(self, name="Bayesian DCE", icon="dce", group="DCE-MRI", desc="DCE model fitting using Bayesian inference", **kwargs)
 
     def init_ui(self):
-        vbox = QtGui.QVBoxLayout()
+        vbox = QtWidgets.QVBoxLayout()
         self.setLayout(vbox)
 
         try:
@@ -96,7 +93,7 @@ class FabberDceWidget(QpWidget):
             self.FabberProcess = None
 
         if self.FabberProcess is None:
-            vbox.addWidget(QtGui.QLabel("Fabber core library not found.\n\n You must install Fabber to use this widget"))
+            vbox.addWidget(QtWidgets.QLabel("Fabber core library not found.\n\n You must install Fabber to use this widget"))
             return
 
         title = TitleWidget(self, help="fabber-dsc", subtitle="DSC modelling using the Fabber process %s" % __version__)
