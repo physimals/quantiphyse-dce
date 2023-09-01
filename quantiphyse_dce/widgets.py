@@ -173,6 +173,7 @@ class FabberDceWidget(QpWidget):
             "max-trials" : 20,
             "max-iterations" : 50,
             "infer-sig0" : True,
+            "allow-bad-voxels" : True,
         }
         options.update(self.input.values())
         options.update(self.acquisition.values())
