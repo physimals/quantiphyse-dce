@@ -10,7 +10,7 @@ folder1 = "/local/engs1170/Dropbox/BioMedIA1/Code/9_GUI/data/"
 file1 = "RIT005img_original.nii"
 
 img = nib.load(folder1 + file1)
-img1 = np.array(img.get_data())
+img1 = np.array(img.get_fdata())
 T10 = np.ones(img1.shape[:3])
 
 baseline1 = np.mean(img1[:, :, :, :3], axis=-1)
